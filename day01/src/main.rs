@@ -1,6 +1,5 @@
 use anyhow::Result;
 use regex::Regex;
-use std::collections::HashMap;
 use std::io;
 use util::Input;
 
@@ -131,7 +130,7 @@ fn get_calibration_sum(input: &Input) -> Result<i32, io::Error> {
     Ok(sum_digits_in_strings(&first_and_last))
 }
 
-/// Converts spelled-out numbers (one to nine) in a string to their digit representations.
+/// Converts spelled-out numbers (zero to nine) in a string to their digit representations.
 ///
 /// # Arguments
 ///
@@ -142,7 +141,8 @@ fn get_calibration_sum(input: &Input) -> Result<i32, io::Error> {
 /// A `String` where spelled-out numbers have been replaced with their digit representations.
 /// Non-matching strings are returned as is.
 fn convert_to_digits(input: &str) -> String {
-    let number_map: HashMap<&str, &str> = [
+    const NUMBER_MAP: &[(&str, &str)] = &[
+        ("zero", "0"),
         ("one", "1"),
         ("two", "2"),
         ("three", "3"),
@@ -152,17 +152,15 @@ fn convert_to_digits(input: &str) -> String {
         ("seven", "7"),
         ("eight", "8"),
         ("nine", "9"),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    ];
 
-    number_map
-        .get(input)
-        .map_or_else(|| input.to_string(), |&digit| digit.to_string())
+    NUMBER_MAP
+        .iter()
+        .find(|&&(word, _)| word == input)
+        .map_or_else(|| input.to_string(), |&(_, digit)| digit.to_string())
 }
 
-/// Replaces spelled-out numbers (one to nine) in a string with their digit representations.
+/// Replaces spelled-out numbers (zero to nine) in a string with their digit representations.
 ///
 /// # Arguments
 ///
@@ -170,17 +168,17 @@ fn convert_to_digits(input: &str) -> String {
 ///
 /// # Returns
 ///
-/// A `String` where each spelled-out number from 'one' to 'nine' is replaced with its
+/// A `String` where each spelled-out number from 'zero' to 'nine' is replaced with its
 /// corresponding digit. If no replacements are made, the original string is returned unchanged.
 fn replace_spelled_out(input: &str) -> String {
-    let re = Regex::new(r"one|two|three|four|five|six|seven|eight|nine").unwrap();
+    let re = Regex::new(r"zero|one|two|three|four|five|six|seven|eight|nine").unwrap();
     re.replace_all(input, |caps: &regex::Captures| {
         convert_to_digits(caps.get(0).unwrap().as_str())
     })
     .to_string()
 }
 
-/// Replaces spelled-out numbers (one to nine) in each string of an input collection
+/// Replaces spelled-out numbers (zero to nine) in each string of an input collection.
 /// with their digit representations.
 ///
 /// # Arguments
