@@ -1,4 +1,6 @@
 use anyhow::Result;
+use regex::Regex;
+use std::collections::HashMap;
 use std::io;
 use util::Input;
 
@@ -11,7 +13,7 @@ fn main() -> Result<()> {
     println!("{}", part1(&input)?); // 53080
 
     println!("Part 2:");
-    println!("{}", part2(&input)?);
+    println!("{}", part2(&input)?); // 53255
     Ok(())
 }
 
@@ -19,8 +21,11 @@ fn part1(input: &Input) -> Result<i32> {
     Ok(get_calibration_sum(input)?)
 }
 
-fn part2(_input: &Input) -> Result<i32> {
-    Ok(0)
+fn part2(input: &Input) -> Result<i32> {
+    let no_spelled = replace_spelled_out_strings(input.lines());
+    let digits_only = filter_digits_in_strings(&no_spelled);
+    let first_and_last = filter_first_and_last_strings(&digits_only);
+    Ok(sum_digits_in_strings(&first_and_last))
 }
 
 /// Extracts and returns all digits from a given string.
@@ -126,11 +131,78 @@ fn get_calibration_sum(input: &Input) -> Result<i32, io::Error> {
     Ok(sum_digits_in_strings(&first_and_last))
 }
 
+/// Converts spelled-out numbers (one to nine) in a string to their digit representations.
+///
+/// # Arguments
+///
+/// * `input` - A string slice reference containing the text to be processed.
+///
+/// # Returns
+///
+/// A `String` where spelled-out numbers have been replaced with their digit representations.
+/// Non-matching strings are returned as is.
+fn convert_to_digits(input: &str) -> String {
+    let number_map: HashMap<&str, &str> = [
+        ("one", "1"),
+        ("two", "2"),
+        ("three", "3"),
+        ("four", "4"),
+        ("five", "5"),
+        ("six", "6"),
+        ("seven", "7"),
+        ("eight", "8"),
+        ("nine", "9"),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    number_map
+        .get(input)
+        .map_or_else(|| input.to_string(), |&digit| digit.to_string())
+}
+
+/// Replaces spelled-out numbers (one to nine) in a string with their digit representations.
+///
+/// # Arguments
+///
+/// * `input` - A string slice reference containing the text to be processed.
+///
+/// # Returns
+///
+/// A `String` where each spelled-out number from 'one' to 'nine' is replaced with its
+/// corresponding digit. If no replacements are made, the original string is returned unchanged.
+fn replace_spelled_out(input: &str) -> String {
+    let re = Regex::new(r"one|two|three|four|five|six|seven|eight|nine").unwrap();
+    re.replace_all(input, |caps: &regex::Captures| {
+        convert_to_digits(caps.get(0).unwrap().as_str())
+    })
+    .to_string()
+}
+
+/// Replaces spelled-out numbers (one to nine) in each string of an input collection
+/// with their digit representations.
+///
+/// # Arguments
+///
+/// * `input` - An iterable collection of string references.
+///
+/// # Returns
+///
+/// A `Vec<String>` where each element is a string from the input collection with
+/// spelled-out numbers replaced by digits.
+fn replace_spelled_out_strings<T: AsRef<str>>(input: &[T]) -> Vec<String> {
+    input
+        .iter()
+        .map(|s| replace_spelled_out(s.as_ref()))
+        .collect()
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
-        filter_digits, filter_digits_in_strings, filter_first_and_last_strings,
-        get_calibration_sum, part1, part2,
+        convert_to_digits, filter_digits, filter_digits_in_strings, filter_first_and_last_strings,
+        get_calibration_sum, part1, part2, replace_spelled_out, replace_spelled_out_strings,
     };
     use anyhow::Result;
     use util::Input;
@@ -147,8 +219,19 @@ mod test {
 
     #[test]
     pub fn test_part2() -> Result<()> {
-        let input = Input::from_lines(&[]);
-        assert_eq!(part2(&input).unwrap(), 0);
+        // Given an input of strings containing spelled out numbers
+        let input = Input::from_lines(&[
+            "two1nine",
+            "eightwothree",
+            "abcone2threexyz",
+            "xtwone3four",
+            "4nineeightseven2",
+            "zoneight234",
+            "7pqrstsixteen",
+        ]);
+
+        // Then it should return their calibration sum
+        assert_eq!(part2(&input).unwrap(), 281);
         Ok(())
     }
 
@@ -323,5 +406,72 @@ mod test {
             "get_calibration_sum should return 142 for the provided input"
         );
         Ok(())
+    }
+
+    #[test]
+    pub fn test_convert_to_digits() {
+        // Given a single spelled out number as a string
+        let input = "eight";
+
+        // When convert_to_digits is called
+        let actual = convert_to_digits(&input);
+
+        // Then it should return the spelled out number in digits
+        assert_eq!(
+            actual, "8",
+            "convert_to_digits should return \"8\" for an input of \"eight\""
+        )
+    }
+
+    #[test]
+    pub fn test_replace_spelled_out() {
+        // Given a string of spelled out numbers and numbers in their digital representation
+        let input = "abcone2threexyz";
+
+        // When replace_spelled_out is called
+        let actual = replace_spelled_out(input);
+
+        // Then it should replace all the spelled out numbers with their digital representations
+        assert_eq!(
+            actual, "abc123xyz",
+            "replace_spelled_out should return \
+                       \"abc123xyz\" for an input string of \"abcone2threexyz\""
+        )
+    }
+
+    #[test]
+    pub fn test_replace_spelled_out_strings() {
+        // Given a vector of strings that contains spelled out and digital numerical values
+        let input: Vec<String> = vec![
+            "two1nine",
+            "eightwothree",
+            "abcone2threexyz",
+            "xtwone3four",
+            "4nineeightseven2",
+            "zoneight234",
+            "7pqrstsixteen",
+        ]
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
+        let expected: Vec<&str> = vec![
+            "219",
+            "8wo3",
+            "abc123xyz",
+            "x2ne34",
+            "49872",
+            "z1ight234",
+            "7pqrst6teen",
+        ];
+
+        // When replace_spelled_out_strings is called
+        let actual = replace_spelled_out_strings(&input);
+
+        // Then it should replace all the spelled out numbers with their digital representations
+        assert_eq!(
+            actual, expected,
+            "replace_spelled_out_strings should return a vector with all \
+                   the spelled out numbers converted to their digital representation."
+        )
     }
 }
