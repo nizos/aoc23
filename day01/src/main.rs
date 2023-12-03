@@ -1,7 +1,6 @@
 use anyhow::Result;
 use log::error;
 use std::collections::HashSet;
-use std::io;
 use util::Input;
 
 const INPUT_FILE_PATH: &str = "./day01/input";
@@ -36,10 +35,41 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Calculates a sum based on specific processing of input strings from an `Input` instance.
+///
+/// The function processes each line of the input by:
+/// 1. Filtering out all non-numerical characters.
+/// 2. Retaining only the first and last characters of the filtered lines.
+/// 3. Calculating the sum of these numerical values.
+///
+/// # Arguments
+///
+/// * `input` - An `Input` instance containing lines to process.
+///
+/// # Returns
+///
+/// * `Result<i32>` - The sum of the numerical values after processing.
 fn part1(input: &Input) -> Result<i32> {
-    Ok(get_calibration_sum(input)?)
+    let digits_only = filter_digits_in_strings(input.lines());
+    let first_and_last = filter_first_and_last_strings(&digits_only);
+    Ok(sum_digits_in_strings(&first_and_last))
 }
 
+/// Calculates a sum from strings containing spelled-out numbers in an `Input` instance.
+///
+/// The function processes each line of the input by:
+/// 1. Converting spelled-out numbers to their digit representations.
+/// 2. Filtering out all non-numerical characters.
+/// 3. Retaining only the first and last characters of the resulting string.
+/// 4. Calculating the sum of these numerical values.
+///
+/// # Arguments
+///
+/// * `input` - An `Input` instance containing lines to process.
+///
+/// # Returns
+///
+/// * `Result<i32>` - The sum of the numerical values after processing.
 fn part2(input: &Input) -> Result<i32> {
     let no_spelled = replace_spelled_out_strings(input.lines());
     let digits_only = filter_digits_in_strings(&no_spelled);
@@ -127,26 +157,6 @@ fn sum_digits_in_strings<T: AsRef<str>>(input: &[T]) -> i32 {
         .iter()
         .filter_map(|s| s.as_ref().parse::<i32>().ok())
         .sum()
-}
-
-/// Returns the calibration sum of a new-line-separated list of strings at a specified file path.
-///
-/// The function reads the text contents of the file and then processes the content as follows:
-/// * Filters out all non-numerical characters in each line.
-/// * Filters out all remaining characters except for the first and last in each line.
-/// * Calculates and returns the sum of the resulting numerical values.
-///
-/// # Arguments
-///
-/// * `input` - A file path to read the data from.
-///
-/// # Returns
-///
-/// * Returns the sum of the resulting numerical values according to the described algorithm.
-fn get_calibration_sum(input: &Input) -> Result<i32, io::Error> {
-    let digits_only = filter_digits_in_strings(input.lines());
-    let first_and_last = filter_first_and_last_strings(&digits_only);
-    Ok(sum_digits_in_strings(&first_and_last))
 }
 
 /// Returns a digit representation for a spelled-out number (zero to nine).
@@ -262,8 +272,8 @@ fn replace_spelled_out_strings<T: AsRef<str>>(input: &[T]) -> Vec<String> {
 mod test {
     use crate::{
         filter_digits, filter_digits_in_strings, filter_first_and_last_strings,
-        get_calibration_sum, get_digit_for_spelled_out_number, get_spelled_out_number_indexes,
-        part1, part2, replace_spelled_out, replace_spelled_out_strings,
+        get_digit_for_spelled_out_number, get_spelled_out_number_indexes, part1, part2,
+        replace_spelled_out, replace_spelled_out_strings,
     };
     use anyhow::Result;
     use util::Input;
@@ -273,8 +283,14 @@ mod test {
         // Given an input of strings
         let input = Input::from_lines(&["1abc2", "pqr3stu8vwx", "a1b2c3d4e5f", "treb7uchet"]);
 
+        // When part1 is called
+        let actual = part1(&input).unwrap();
+
         // Then it should return their calibration sum
-        assert_eq!(part1(&input).unwrap(), 142);
+        assert_eq!(
+            actual, 142,
+            "part1 should return 142 for the provided input"
+        );
         Ok(())
     }
 
@@ -291,8 +307,14 @@ mod test {
             "7pqrstsixteen",
         ]);
 
-        // Then it should return their calibration sum
-        assert_eq!(part2(&input).unwrap(), 281);
+        // When part2 is called
+        let actual = part2(&input).unwrap();
+
+        // Then it returns their sum
+        assert_eq!(
+            actual, 281,
+            "part2 should return 281 for the provided input"
+        );
         Ok(())
     }
 
@@ -450,23 +472,6 @@ mod test {
                        for an input of [\"12\", \"-38\", \"15\", \"77\"]"
             )
         }
-    }
-
-    #[test]
-    pub fn test_get_calibration_sum() -> Result<()> {
-        // Given an input of lines that consist of alphabetical and numerical characters
-        let input = Input::from_lines(&["1abc2", "pqr3stu8vwx", "a1b2c3d4e5f", "treb7uchet"]);
-
-        // When get_calibration_sum is called
-        let actual = get_calibration_sum(&input)?;
-
-        // Then it should return the sum of each line's numerical value
-        // which consists of the first and last digit of said line
-        assert_eq!(
-            actual, 142,
-            "get_calibration_sum should return 142 for the provided input"
-        );
-        Ok(())
     }
 
     #[test]
