@@ -6,4 +6,4 @@ version = "0.1.0"
 [dependencies]
 util = { path = "../util" }
 anyhow = "1.0.75"
-regex = "1.10.2"
+log = "0.4.20"

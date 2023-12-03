@@ -1,9 +1,29 @@
 use anyhow::Result;
-use regex::Regex;
+use log::error;
+use std::collections::HashSet;
 use std::io;
 use util::Input;
 
 const INPUT_FILE_PATH: &str = "./day01/input";
+
+/// Static list of spelled-out numbers.
+static SPELLED_OUT_NUMBERS: &[&str] = &[
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+];
+
+/// Static mapping of spelled-out numbers to their digit representations.
+static NUMBER_MAP: &[(&str, &str)] = &[
+    ("zero", "0"),
+    ("one", "1"),
+    ("two", "2"),
+    ("three", "3"),
+    ("four", "4"),
+    ("five", "5"),
+    ("six", "6"),
+    ("seven", "7"),
+    ("eight", "8"),
+    ("nine", "9"),
+];
 
 fn main() -> Result<()> {
     let input = Input::load(INPUT_FILE_PATH)?;
@@ -12,7 +32,7 @@ fn main() -> Result<()> {
     println!("{}", part1(&input)?); // 53080
 
     println!("Part 2:");
-    println!("{}", part2(&input)?); // 53255
+    println!("{}", part2(&input)?); // 53268
     Ok(())
 }
 
@@ -130,52 +150,95 @@ fn get_calibration_sum(input: &Input) -> Result<i32, io::Error> {
     Ok(sum_digits_in_strings(&first_and_last))
 }
 
-/// Converts spelled-out numbers (zero to nine) in a string to their digit representations.
+/// Returns a digit representation for a spelled-out number (zero to nine).
 ///
 /// # Arguments
 ///
-/// * `input` - A string slice reference containing the text to be processed.
+/// * `spelled_out` - A spelled out number from zero to nine.
 ///
 /// # Returns
 ///
-/// A `String` where spelled-out numbers have been replaced with their digit representations.
-/// Non-matching strings are returned as is.
-fn convert_to_digits(input: &str) -> String {
-    const NUMBER_MAP: &[(&str, &str)] = &[
-        ("zero", "0"),
-        ("one", "1"),
-        ("two", "2"),
-        ("three", "3"),
-        ("four", "4"),
-        ("five", "5"),
-        ("six", "6"),
-        ("seven", "7"),
-        ("eight", "8"),
-        ("nine", "9"),
-    ];
-
+/// An `Option` containing the digit as a string slice. Returns `None` if no match is found.
+fn get_digit_for_spelled_out_number(spelled_out: &str) -> Option<&'static str> {
     NUMBER_MAP
         .iter()
-        .find(|&&(word, _)| word == input)
-        .map_or_else(|| input.to_string(), |&(_, digit)| digit.to_string())
+        .find(|&&(word, _)| word == spelled_out)
+        .map(|&(_, digit)| digit)
 }
 
-/// Replaces spelled-out numbers (zero to nine) in a string with their digit representations.
+/// Finds a spelled-out number in a string starting from a specific index.
 ///
 /// # Arguments
 ///
-/// * `input` - A string slice reference containing the text to be processed.
+/// * `input` - The input string to search.
+/// * `index` - The index to start searching from.
 ///
 /// # Returns
 ///
-/// A `String` where each spelled-out number from 'zero' to 'nine' is replaced with its
-/// corresponding digit. If no replacements are made, the original string is returned unchanged.
+/// An `Option` containing the spelled-out number as a string slice, starting from the given index.
+fn get_spelled_out_number(input: &str, index: usize) -> Option<&'static str> {
+    SPELLED_OUT_NUMBERS
+        .iter()
+        .find(|&&word| input[index..].starts_with(word))
+        .copied()
+}
+
+/// Identifies the start indexes of all spelled-out numbers in a string.
+///
+/// # Arguments
+///
+/// * `input` - The input string to search.
+///
+/// # Returns
+///
+/// A `Vec<usize>` containing the start indexes of spelled-out number found.
+fn get_spelled_out_number_indexes(input: &str) -> Vec<usize> {
+    let mut indexes = vec![];
+    for (index, _) in input.char_indices() {
+        if get_spelled_out_number(input, index).is_some() {
+            indexes.push(index)
+        }
+    }
+    indexes
+}
+
+/// Replaces spelled-out numbers in a string with their digit representations.
+///
+/// # Arguments
+///
+/// * `input` - The input string containing spelled-out numbers.
+///
+/// # Returns
+///
+/// A `String` where spelled-out numbers are replaced with digits.
+/// Unmatched parts of the string are unchanged.
 fn replace_spelled_out(input: &str) -> String {
-    let re = Regex::new(r"zero|one|two|three|four|five|six|seven|eight|nine").unwrap();
-    re.replace_all(input, |caps: &regex::Captures| {
-        convert_to_digits(caps.get(0).unwrap().as_str())
-    })
-    .to_string()
+    let mut result = String::new();
+    let mut total_chars_to_skip = 0;
+    let number_indexes: HashSet<usize> =
+        get_spelled_out_number_indexes(input).into_iter().collect();
+
+    for (index, ch) in input.char_indices() {
+        if number_indexes.contains(&index) {
+            if let Some(spelled_out) = get_spelled_out_number(input, index) {
+                if let Some(digit) = get_digit_for_spelled_out_number(spelled_out) {
+                    result.push_str(digit);
+                    total_chars_to_skip = spelled_out.len() - 1;
+                    continue;
+                } else {
+                    error!(
+                        "No digit representation found for spelled-out number {}",
+                        spelled_out
+                    )
+                }
+            }
+        } else if total_chars_to_skip == 0 {
+            result.push(ch);
+        } else {
+            total_chars_to_skip -= 1;
+        }
+    }
+    result
 }
 
 /// Replaces spelled-out numbers (zero to nine) in each string of an input collection.
@@ -199,8 +262,9 @@ fn replace_spelled_out_strings<T: AsRef<str>>(input: &[T]) -> Vec<String> {
 #[cfg(test)]
 mod test {
     use crate::{
-        convert_to_digits, filter_digits, filter_digits_in_strings, filter_first_and_last_strings,
-        get_calibration_sum, part1, part2, replace_spelled_out, replace_spelled_out_strings,
+        filter_digits, filter_digits_in_strings, filter_first_and_last_strings,
+        get_calibration_sum, get_digit_for_spelled_out_number, get_spelled_out_number_indexes,
+        part1, part2, replace_spelled_out, replace_spelled_out_strings,
     };
     use anyhow::Result;
     use util::Input;
@@ -407,12 +471,12 @@ mod test {
     }
 
     #[test]
-    pub fn test_convert_to_digits() {
+    pub fn test_get_digit_for_spelled_out_number() {
         // Given a single spelled out number as a string
         let input = "eight";
 
         // When convert_to_digits is called
-        let actual = convert_to_digits(&input);
+        let actual = get_digit_for_spelled_out_number(&input).unwrap();
 
         // Then it should return the spelled out number in digits
         assert_eq!(
@@ -421,19 +485,91 @@ mod test {
         )
     }
 
+    mod test_get_spelled_out_number {
+        use crate::get_spelled_out_number;
+
+        #[test]
+        pub fn test_spelled_out_number_with_index_at_start() {
+            // Give a string that consists of a spelled-out number and an index at the start
+            let input = "eight";
+            let index = 0;
+
+            // When get_spelled_out_number is called
+            let actual = get_spelled_out_number(input, index).unwrap();
+
+            // Then it should return the spelled-out number
+            assert_eq!(
+                actual, input,
+                "get_spelled_out_number should return \
+                \"eight\" for an input of \"eight\" and an index of 0"
+            )
+        }
+
+        #[test]
+        pub fn test_spelled_out_number_with_index_after_start() {
+            // Give a string that consists of a spelled-out number and an index past the start
+            let input = "eight";
+            let index = 1;
+
+            // When get_spelled_out_number is called
+            let actual = get_spelled_out_number(input, index);
+
+            // Then it should return None
+            assert_eq!(
+                actual, None,
+                "get_spelled_out_number should return \
+                None for an input of \"eight\" and an index of 1"
+            )
+        }
+
+        #[test]
+        pub fn test_spelled_out_number_with_index_before_start() {
+            // Give a string that contains a spelled-out number and an index before its start
+            let input = "abceight";
+            let index = 1;
+
+            // When get_spelled_out_number is called
+            let actual = get_spelled_out_number(input, index);
+
+            // Then it should return None
+            assert_eq!(
+                actual, None,
+                "get_spelled_out_number should return \
+                None for an input of \"abceight\" and an index of 1"
+            )
+        }
+    }
+
+    #[test]
+    pub fn test_get_spelled_out_number_indexes() {
+        // Given a string containing overlapping spelled-out numbers
+        let input = "eightwo";
+
+        // When get_spelled_out_number_indexes is called
+        let actual = get_spelled_out_number_indexes(input);
+
+        // Then it should return a vector containing the spelled-out number starting indexes
+        assert_eq!(
+            actual,
+            vec![0, 4],
+            "get_spelled_out_number_indexes should return a vector \
+            containing 0 and 4 for an input string of \"eightwo\""
+        )
+    }
+
     #[test]
     pub fn test_replace_spelled_out() {
         // Given a string of spelled out numbers and numbers in their digital representation
-        let input = "abcone2threexyz";
+        let input = "eightjzqzhrllg1oneightfck";
 
         // When replace_spelled_out is called
         let actual = replace_spelled_out(input);
 
         // Then it should replace all the spelled out numbers with their digital representations
         assert_eq!(
-            actual, "abc123xyz",
+            actual, "8jzqzhrllg118fck",
             "replace_spelled_out should return \
-                       \"abc123xyz\" for an input string of \"abcone2threexyz\""
+                       \"8jzqzhrllg118fck\" for an input string of \"eightjzqzhrllg1oneightfck\""
         )
     }
 
@@ -454,11 +590,11 @@ mod test {
         .collect();
         let expected: Vec<&str> = vec![
             "219",
-            "8wo3",
+            "823",
             "abc123xyz",
-            "x2ne34",
+            "x2134",
             "49872",
-            "z1ight234",
+            "z18234",
             "7pqrst6teen",
         ];
 
