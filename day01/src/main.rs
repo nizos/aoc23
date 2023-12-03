@@ -91,8 +91,7 @@ fn filter_first_and_last(input: &str) -> String {
     let last: Option<char> = input.chars().last();
 
     match (first, last) {
-        (Some(f), Some(l)) if f != l => format!("{}{}", f, l),
-        (Some(c), _) => format!("{}{}", c, c),
+        (Some(f), Some(l)) => format!("{}{}", f, l),
         _ => String::new(),
     }
 }
